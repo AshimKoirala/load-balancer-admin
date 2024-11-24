@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math/rand"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -105,4 +107,24 @@ func UpdatePassword(userID int64, hashedPassword string) error {
 		Where("id = ?", userID).
 		Exec(ctx)
 	return err
+}
+func GenerateOTP() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%06d", rand.Intn(1000000)) //6 digit code
+}
+
+func SetPasswordResetOTP(email string) (string, error) {
+	otp := GenerateOTP()
+	expiry := time.Now().Add(5 * time.Minute) //for 5 min
+
+	_, err := db.NewUpdate().
+		Model(&User{}).
+		Set("password_reset_token = ?", otp).
+		Set("otp_expiry = ?", expiry).
+		Where("LOWER(email) = ?", email).
+		Exec(ctx)
+	if err != nil {
+		return "", err
+	}
+	return otp, nil
 }
